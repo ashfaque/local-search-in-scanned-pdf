@@ -1,0 +1,20 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
+    "black-formatter.args": [
+        "--line-length",
+        "120"
+    ],
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "always"
+        // "source.sortImports": "always"
+    },
+    "pylint.args": [
+        "--rcfile=.vscode/.pylintrc"
+    ],
+    // "isort.args": ["--settings-path", ".vscode/.isort.cfg"],
+    // "editor.defaultFormatter": "ms-python.black-formatter",
+    // "editor.formatOnSave": true,
+}

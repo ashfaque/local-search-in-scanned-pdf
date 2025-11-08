@@ -1,0 +1,22 @@
+[BASIC]
+good-names=i,
+           j,
+           k,
+           x,
+           ex,
+           Run,
+           _,
+           __,
+
+
+[FORMAT]
+max-line-length=120    # Maximum line length
+max-module-lines=5000    # Maximum number of lines in a module.
+
+
+[MESSAGES CONTROL]
+disable=invalid-name    # Else it will mark upper case constant variables as invalid.
+        , trailing-newlines    # Else it will mark multiple new lines in the end of the file.
+        , unused-import    # Else it will mark unused imports.
+        , no-member
+        , broad-exception-caught
