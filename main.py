@@ -347,12 +347,17 @@ def main():
         except Exception as e:
             print(f"[ERROR] processing {pdf}: {e}")
 
-    # Prompt user for keyword
-    kw = input("\nEnter search keyword (case-insensitive): ").strip()
+    # Prompt user for keyword (supports regex)
+    kw = input("\nEnter search keyword or regex (case-insensitive): ").strip()
     if not kw:
         print("Empty keyword. Exiting.")
         return
-    keyword_re = re.compile(re.escape(kw), re.IGNORECASE)
+    # Try to treat input as a regex; if it's an invalid regex, fall back to literal search.
+    try:
+        keyword_re = re.compile(kw, re.IGNORECASE)
+    except re.error:
+        # invalid regex — search literally
+        keyword_re = re.compile(re.escape(kw), re.IGNORECASE)
 
     # Search through cached pages
     matches_any = False
