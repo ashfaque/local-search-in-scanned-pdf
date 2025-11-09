@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+
 # import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from io import BytesIO
@@ -27,6 +28,14 @@ from dotenv import load_dotenv
 from PIL import Image
 
 load_dotenv(override=True)
+
+try:
+    from colorama import init as _colorama_init
+
+    _colorama_init()  # enable on Windows
+except Exception:
+    # colorama not installed -> still try ANSI; Windows may not show colors
+    pass
 
 # pdf2image and pytesseract
 try:
@@ -41,8 +50,23 @@ except Exception:
     print("Missing pytesseract. Install: pip install pytesseract")
     raise
 
-
 # ---------------- CONFIG ----------------
+
+# Soft "material-ish" palette (muted, easy-on-eyes) - change here to recolor everything
+COLORS = {
+    "HEADER": (54, 76, 83),  # muted slate
+    "INFO": (120, 144, 156),  # warm gray-blue
+    "PROCESSING": (199, 168, 121),  # warm sand
+    "FILE": (145, 103, 125),  # muted mauve
+    "PAGE": (128, 138, 115),  # soft olive
+    "LINE": (96, 125, 139),  # soft blue-gray
+    "HIGHLIGHT_FG": (34, 28, 24),  # dark foreground for highlight
+    "HIGHLIGHT_BG": (252, 243, 207),  # pale warm background
+}
+
+# helpers: rgb ansi + bg + bold
+CSI = "\x1b["
+
 # Directory containing PDFs (edit this)
 SOURCE_DIR = os.getenv("SOURCE_DIR", None)
 
@@ -81,6 +105,28 @@ if TESSERACT_CMD:
     pytesseract.pytesseract.tesseract_cmd = str(TESSERACT_CMD)
 
 # ---------------- Helper functions ----------------
+
+
+def _ansi_rgb(fg=None, bg=None, bold=False):
+    parts = []
+    if bold:
+        parts.append("1")
+    if fg:
+        parts.append(f"38;2;{fg[0]};{fg[1]};{fg[2]}")
+    if bg:
+        parts.append(f"48;2;{bg[0]};{bg[1]};{bg[2]}")
+    if not parts:
+        return ""
+    return CSI + ";".join(parts) + "m"
+
+
+def colorize(text: str, fg: tuple = None, bg: tuple = None, bold: bool = False) -> str:
+    """Wrap text in ANSI 24-bit color + reset. If fg/bg None -> returns text unchanged."""
+    start = _ansi_rgb(fg, bg, bold)
+    if not start:
+        return text
+    end = CSI + "0m"
+    return f"{start}{text}{end}"
 
 
 def file_sha256(path: Path, block_size: int = 65536) -> str:
@@ -165,7 +211,7 @@ def ocr_pdf_with_cache(pdf_path: Path, index: Dict[str, Any]) -> Dict[str, Any]:
                 pass
 
     # Need to process
-    print(f"OCR processing: {pdf_path.name} ...")
+    print(colorize(f"OCR processing: {pdf_path.name} ...", fg=COLORS["PROCESSING"], bold=True))
     sha = file_sha256(pdf_path)
     cache_filename = f"{sha}.json"
     cache_path = CACHE_DIR / cache_filename
@@ -174,7 +220,7 @@ def ocr_pdf_with_cache(pdf_path: Path, index: Dict[str, Any]) -> Dict[str, Any]:
     try:
         images = convert_from_path(str(pdf_path), dpi=DPI, poppler_path=POPPLER_PATH)
     except Exception as e:
-        print(f"  [ERROR] convert_from_path failed for {pdf_path.name}: {e}")
+        print(colorize(f"  [ERROR] convert_from_path failed for {pdf_path.name}: {e}", fg=COLORS["PROCESSING"]))
         images = []
 
     # Prepare bytes list for workers
@@ -260,7 +306,7 @@ def ocr_pdf_with_cache(pdf_path: Path, index: Dict[str, Any]) -> Dict[str, Any]:
 
 def highlight_line(line: str, keyword_re: re.Pattern) -> str:
     def repl(m):
-        return ">>>%s<<<" % (m.group(0))
+        return colorize(m.group(0), fg=COLORS["HIGHLIGHT_FG"], bg=COLORS["HIGHLIGHT_BG"], bold=True)
 
     return keyword_re.sub(repl, line)
 
@@ -280,7 +326,10 @@ def search_in_pages(pages: List[str], keyword_re: re.Pattern) -> List[Tuple[int,
 
 # ----------------- Main flow -----------------
 def main():
-    print("Source directory:", SOURCE_DIR)
+    print(
+        colorize("Source directory:", fg=COLORS["INFO"], bold=True),
+        colorize(SOURCE_DIR or "unset", fg=COLORS["HEADER"]),
+    )
     src_p = SOURCE_DIR
     pdf_list = list_pdf_files(src_p)
     if not pdf_list:
@@ -307,21 +356,26 @@ def main():
 
     # Search through cached pages
     matches_any = False
-    print("\n=== SEARCH RESULTS ===")
+    print("\n" + colorize("=== SEARCH RESULTS ===", fg=COLORS["HEADER"], bold=True))
     for pdf_path, data in all_data.items():
         pages = data.get("pages", [])
         hits = search_in_pages(pages, keyword_re)
         if hits:
             matches_any = True
-            print(f"\nFile: {Path(pdf_path).name}  (full: {pdf_path})")
+            print(
+                "\n"
+                + colorize(f"File: {Path(pdf_path).name}", fg=COLORS["FILE"], bold=True)
+                + "  "
+                + colorize(f"(full: {pdf_path})", fg=COLORS["INFO"])
+            )
             # group by page
             by_page = {}
             for pno, lno, txt in hits:
                 by_page.setdefault(pno, []).append((lno, txt))
             for pno in sorted(by_page):
-                print(f"  Page {pno}:")
+                print(colorize(f"  Page {pno}:", fg=COLORS["PAGE"], bold=True))
                 for lno, txt in by_page[pno]:
-                    print(f"    Line {lno}: {highlight_line(txt, keyword_re)}")
+                    print(colorize(f"    Line {lno}:", fg=COLORS["LINE"]) + " " + highlight_line(txt, keyword_re))
     if not matches_any:
         print(f"No matches found for '{kw}' in any PDF.")
     else:
