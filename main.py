@@ -279,7 +279,6 @@ def search_in_pages(pages: List[str], keyword_re: re.Pattern) -> List[Tuple[int,
 
 # ----------------- Main flow -----------------
 def main():
-    print("PDF OCR Search (cached, multiprocessing)")
     print("Source directory:", SOURCE_DIR)
     src_p = SOURCE_DIR
     pdf_list = list_pdf_files(src_p)
@@ -287,13 +286,13 @@ def main():
         print("No PDF files found in SOURCE_DIR. Edit the SOURCE_DIR in the script.")
         return
 
-    # load index
-    index = load_index()
+    # load index (already parsed cached files metadata)
+    ocr_index = load_index()
 
     all_data = {}  # path -> data dict with pages
     for pdf in pdf_list:
         try:
-            data = ocr_pdf_with_cache(pdf, index)
+            data = ocr_pdf_with_cache(pdf, ocr_index)
             all_data[str(pdf.resolve())] = data
         except Exception as e:
             print(f"[ERROR] processing {pdf}: {e}")
