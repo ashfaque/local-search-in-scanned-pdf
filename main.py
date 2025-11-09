@@ -347,45 +347,59 @@ def main():
         except Exception as e:
             print(f"[ERROR] processing {pdf}: {e}")
 
-    # Prompt user for keyword (supports regex)
-    kw = input("\nEnter search keyword or regex (case-insensitive): ").strip()
-    if not kw:
-        print("Empty keyword. Exiting.")
-        return
-    # Try to treat input as a regex; if it's an invalid regex, fall back to literal search.
+    # Prompt user repeatedly for keyword (supports regex). Type "q" to quit.
     try:
-        keyword_re = re.compile(kw, re.IGNORECASE)
-    except re.error:
-        # invalid regex — search literally
-        keyword_re = re.compile(re.escape(kw), re.IGNORECASE)
+        while True:
+            kw = input("\nEnter search keyword or regex (case-insensitive) — [type 'q' to quit]: ").strip()
+            if not kw:
+                # empty -> reprompt
+                continue
+            if kw.lower() == "q":
+                print(colorize("Exiting search. Bye.", fg=COLORS["INFO"], bold=True))
+                break
 
-    # Search through cached pages
-    matches_any = False
-    print("\n" + colorize("=== SEARCH RESULTS ===", fg=COLORS["HEADER"], bold=True))
-    for pdf_path, data in all_data.items():
-        pages = data.get("pages", [])
-        hits = search_in_pages(pages, keyword_re)
-        if hits:
-            matches_any = True
-            print(
-                "\n"
-                + colorize(f"File: {Path(pdf_path).name}", fg=COLORS["FILE"], bold=True)
-                + "  "
-                + colorize(f"(full: {pdf_path})", fg=COLORS["INFO"])
-            )
-            # group by page
-            by_page = {}
-            for pno, lno, txt in hits:
-                by_page.setdefault(pno, []).append((lno, txt))
-            for pno in sorted(by_page):
-                print(colorize(f"  Page {pno}:", fg=COLORS["PAGE"], bold=True))
-                for lno, txt in by_page[pno]:
-                    print(colorize(f"    Line {lno}:", fg=COLORS["LINE"]) + " " + highlight_line(txt, keyword_re))
-    if not matches_any:
-        print(f"No matches found for '{kw}' in any PDF.")
-    else:
-        print("\nDone. You can open the PDF and go to the reported page & line.")
-    return
+            # Try to treat input as a regex; if invalid, fall back to literal search.
+            try:
+                keyword_re = re.compile(kw, re.IGNORECASE)
+            except re.error:
+                keyword_re = re.compile(re.escape(kw), re.IGNORECASE)
+
+            # Search through cached pages
+            matches_any = False
+            print("\n" + colorize("=== SEARCH RESULTS ===", fg=COLORS["HEADER"], bold=True))
+            for pdf_path, data in all_data.items():
+                pages = data.get("pages", [])
+                hits = search_in_pages(pages, keyword_re)
+                if hits:
+                    matches_any = True
+                    print(
+                        "\n"
+                        + colorize(f"File: {Path(pdf_path).name}", fg=COLORS["FILE"], bold=True)
+                        + "  "
+                        + colorize(f"(full: {pdf_path})", fg=COLORS["INFO"])
+                    )
+                    # group by page
+                    by_page = {}
+                    for pno, lno, txt in hits:
+                        by_page.setdefault(pno, []).append((lno, txt))
+                    for pno in sorted(by_page):
+                        print(colorize(f"  Page {pno}:", fg=COLORS["PAGE"], bold=True))
+                        for lno, txt in by_page[pno]:
+                            print(
+                                colorize(f"    Line {lno}:", fg=COLORS["LINE"]) + " " + highlight_line(txt, keyword_re)
+                            )
+            if not matches_any:
+                print(colorize(f"No matches found for '{kw}' in any PDF.", fg=COLORS["PROCESSING"]))
+            else:
+                print(
+                    colorize(
+                        "\nDone. You can open the PDF and go to the reported page & line.", fg=COLORS["INFO"], bold=True
+                    )
+                )
+            print(colorize("─" * 80, fg=COLORS["PAGE"]))
+            # loop back for next query
+    except KeyboardInterrupt:
+        print("\n" + colorize("Interrupted by user. Exiting.", fg=COLORS["PROCESSING"], bold=True))
 
 
 if __name__ == "__main__":
