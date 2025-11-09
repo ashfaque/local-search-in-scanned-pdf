@@ -233,26 +233,27 @@ def ocr_pdf_with_cache(pdf_path: Path, index: Dict[str, Any]) -> Dict[str, Any]:
     else:
         pages_text = []
 
-    data = {
-        "path": abs_path,
-        "sha256": sha,
-        "mtime": mtime,
-        "size": size,
-        "cache_file": cache_filename,
-        "pages": pages_text,
-    }
+    if pages_text:
+        data = {
+            "path": abs_path,
+            "sha256": sha,
+            "mtime": mtime,
+            "size": size,
+            "cache_file": cache_filename,
+            "pages": pages_text,
+        }
 
-    # save cache file (atomic)
-    safe_write_json(cache_path, data)
+        # save cache file (atomic)
+        safe_write_json(cache_path, data)
 
-    # update index
-    index[abs_path] = {
-        "mtime": mtime,
-        "size": size,
-        "sha256": sha,
-        "cache_file": cache_filename,
-    }
-    save_index(index)
+        # update index
+        index[abs_path] = {
+            "mtime": mtime,
+            "size": size,
+            "sha256": sha,
+            "cache_file": cache_filename,
+        }
+        save_index(index)
 
     return data
 
